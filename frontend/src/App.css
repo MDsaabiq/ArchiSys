@@ -1,0 +1,71 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #f8f9fa;
+  color: #1b1b1f;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── React Flow overrides ────────────────────────────────────────────────────── */
+.react-flow__node { cursor: default; }
+
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid #6366f1 !important;
+  background: #fff !important;
+  transition: background 0.15s, transform 0.15s !important;
+}
+.react-flow__handle:hover {
+  background: #6366f1 !important;
+  transform: scale(1.4) !important;
+}
+
+.react-flow__controls {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: #ffffff !important;
+  border-color: #e2e4e9 !important;
+  color: #1b1b1f !important;
+  fill: #1b1b1f !important;
+  border-bottom: 1px solid #e2e4e9 !important;
+}
+.react-flow__controls-button:hover {
+  background: #f0f1f5 !important;
+}
+
+/* Excalidraw-style dotted grid */
+.react-flow__background pattern circle {
+  fill: #c8cad0 !important;
+}
+
+/* ── Edges ───────────────────────────────────────────────────────────────────── */
+@keyframes dash-anim {
+  to { stroke-dashoffset: -20; }
+}
+
+/* ── Status pill pulse ───────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Sidebar scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d2d9; border-radius: 4px; }
+
+/* ── Slider accent ───────────────────────────────────────────────────────────── */
+input[type=range] { accent-color: #6366f1; }
+
+/* ── Node selection ring (React Flow) ───────────────────────────────────────── */
+.react-flow__node.selected .node-card {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
