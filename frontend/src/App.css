@@ -64,8 +64,7 @@ body {
 /* ── Slider accent ───────────────────────────────────────────────────────────── */
 input[type=range] { accent-color: #6366f1; }
 
-/* ── Node selection ring (React Flow) ───────────────────────────────────────── */
-.react-flow__node.selected .node-card {
-  outline: 2px solid #6366f1;
-  outline-offset: 1px;
-}
+/* ── Kill React Flow's default blue selection box on nodes ──────────────────── */
+.react-flow__node.selected        { outline: none !important; }
+.react-flow__node.selected:focus  { outline: none !important; }
+.react-flow__node:focus           { outline: none !important; }
