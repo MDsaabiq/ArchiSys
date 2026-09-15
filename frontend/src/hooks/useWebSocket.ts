@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import type { SystemMetricsMsg } from '../types/metrics'
 
-const WS_URL = 'ws://localhost:8765/ws'
+const WS_URL = 'ws://localhost:8000/ws'
 
 // Singleton WS reference shared between useWebSocket and openWebSocketFirst()
 let globalWs: WebSocket | null = null
@@ -17,10 +17,9 @@ export function openWebSocketFirst(): Promise<WebSocket> {
     }
     const ws = new WebSocket(WS_URL)
     globalWs = ws
-    ws.onopen = () => resolve(ws)
-    ws.onerror = () => reject(new Error('WebSocket connection failed'))
     const timeout = setTimeout(() => reject(new Error('WS connect timeout')), 3000)
     ws.onopen = () => { clearTimeout(timeout); resolve(ws) }
+    ws.onerror = () => reject(new Error('WebSocket connection failed'))
   })
 }
 

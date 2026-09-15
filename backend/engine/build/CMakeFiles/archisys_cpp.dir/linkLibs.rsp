@@ -1,0 +1,1 @@
+ -mthreads -static -static-libgcc -static-libstdc++ C:/Users/saabi/AppData/Local/Programs/Python/Python313/libs/python313.lib -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 

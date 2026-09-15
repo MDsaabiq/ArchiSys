@@ -1,13 +1,17 @@
 import type { ArchitecturePayload } from '../types/architecture'
 
-const BASE = 'http://localhost:8765'
+const BASE = 'http://localhost:8000'
 
 export async function startSimulation(payload: ArchitecturePayload): Promise<void> {
-  await fetch(`${BASE}/start`, {
+  const res = await fetch(`${BASE}/start`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
   })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to start simulation' }))
+    throw new Error(err.detail || 'Failed to start simulation')
+  }
 }
 
 export async function stopSimulation(): Promise<void> {

@@ -1,4 +1,0 @@
-C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/build/CMakeFiles/archisys_sim.dir
-C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/build/CMakeFiles/archisys_server.dir
-C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/build/CMakeFiles/edit_cache.dir
-C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/build/CMakeFiles/rebuild_cache.dir

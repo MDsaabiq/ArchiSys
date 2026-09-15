@@ -1,0 +1,1 @@
+-IC:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/include -IC:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/third_party -isystem C:/Users/saabi/AppData/Local/Programs/Python/Python313/Include -isystem "C:/Users/saabi/OneDrive/Documents/code/projects/archisys/.venv/Lib/site-packages/pybind11/include"

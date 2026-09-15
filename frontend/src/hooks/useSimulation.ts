@@ -59,7 +59,7 @@ export function useSimulation() {
       setSimStatus('running')
     } catch (err) {
       console.error('Failed to start simulation:', err)
-      alert('Could not reach the C++ server at localhost:8765.\nMake sure archisys_server.exe is running.')
+      alert('Could not reach the FastAPI backend at http://localhost:8000.\nMake sure the FastAPI server is running.')
     }
   }
 

@@ -121,8 +121,8 @@ export default function Sidebar() {
   )
 }
 
-function SidebarCard({ type, label, color, subtitle, shape, onDragStart }: {
-  type: ComponentType
+function SidebarCard({ label, color, subtitle, shape, onDragStart }: {
+  type?: ComponentType
   label: string
   color: string
   subtitle: string
