@@ -152,77 +152,29 @@ src/bindings.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/bindings.cpp.s
 .PHONY : src/bindings.cpp.s
 
-src/component.obj: src/component.cpp.obj
-.PHONY : src/component.obj
+src/engine.obj: src/engine.cpp.obj
+.PHONY : src/engine.obj
 
 # target to build an object file
-src/component.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/component.cpp.obj
-.PHONY : src/component.cpp.obj
+src/engine.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj
+.PHONY : src/engine.cpp.obj
 
-src/component.i: src/component.cpp.i
-.PHONY : src/component.i
-
-# target to preprocess a source file
-src/component.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/component.cpp.i
-.PHONY : src/component.cpp.i
-
-src/component.s: src/component.cpp.s
-.PHONY : src/component.s
-
-# target to generate assembly for a file
-src/component.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/component.cpp.s
-.PHONY : src/component.cpp.s
-
-src/simulation_engine.obj: src/simulation_engine.cpp.obj
-.PHONY : src/simulation_engine.obj
-
-# target to build an object file
-src/simulation_engine.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj
-.PHONY : src/simulation_engine.cpp.obj
-
-src/simulation_engine.i: src/simulation_engine.cpp.i
-.PHONY : src/simulation_engine.i
+src/engine.i: src/engine.cpp.i
+.PHONY : src/engine.i
 
 # target to preprocess a source file
-src/simulation_engine.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.i
-.PHONY : src/simulation_engine.cpp.i
+src/engine.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/engine.cpp.i
+.PHONY : src/engine.cpp.i
 
-src/simulation_engine.s: src/simulation_engine.cpp.s
-.PHONY : src/simulation_engine.s
-
-# target to generate assembly for a file
-src/simulation_engine.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.s
-.PHONY : src/simulation_engine.cpp.s
-
-src/simulator.obj: src/simulator.cpp.obj
-.PHONY : src/simulator.obj
-
-# target to build an object file
-src/simulator.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj
-.PHONY : src/simulator.cpp.obj
-
-src/simulator.i: src/simulator.cpp.i
-.PHONY : src/simulator.i
-
-# target to preprocess a source file
-src/simulator.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulator.cpp.i
-.PHONY : src/simulator.cpp.i
-
-src/simulator.s: src/simulator.cpp.s
-.PHONY : src/simulator.s
+src/engine.s: src/engine.cpp.s
+.PHONY : src/engine.s
 
 # target to generate assembly for a file
-src/simulator.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/simulator.cpp.s
-.PHONY : src/simulator.cpp.s
+src/engine.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/src/engine.cpp.s
+.PHONY : src/engine.cpp.s
 
 # Help Target
 help:
@@ -236,15 +188,9 @@ help:
 	@echo ... src/bindings.obj
 	@echo ... src/bindings.i
 	@echo ... src/bindings.s
-	@echo ... src/component.obj
-	@echo ... src/component.i
-	@echo ... src/component.s
-	@echo ... src/simulation_engine.obj
-	@echo ... src/simulation_engine.i
-	@echo ... src/simulation_engine.s
-	@echo ... src/simulator.obj
-	@echo ... src/simulator.i
-	@echo ... src/simulator.s
+	@echo ... src/engine.obj
+	@echo ... src/engine.i
+	@echo ... src/engine.s
 .PHONY : help
 
 

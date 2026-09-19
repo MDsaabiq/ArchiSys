@@ -7,9 +7,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ── Core C++ Sources & Includes ───────────────────────────────────────────────
 set(ENGINE_SOURCES
-    src/component.cpp
-    src/simulation_engine.cpp
-    src/simulator.cpp
+    src/engine.cpp
 )
 
 set(ENGINE_INCLUDES

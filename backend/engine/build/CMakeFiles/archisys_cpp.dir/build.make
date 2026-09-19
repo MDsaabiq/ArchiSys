@@ -71,56 +71,26 @@ include CMakeFiles/archisys_cpp.dir/flags.make
 CMakeFiles/archisys_cpp.dir/codegen:
 .PHONY : CMakeFiles/archisys_cpp.dir/codegen
 
-CMakeFiles/archisys_cpp.dir/src/component.cpp.obj: CMakeFiles/archisys_cpp.dir/flags.make
-CMakeFiles/archisys_cpp.dir/src/component.cpp.obj: CMakeFiles/archisys_cpp.dir/includes_CXX.rsp
-CMakeFiles/archisys_cpp.dir/src/component.cpp.obj: C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/src/component.cpp
-CMakeFiles/archisys_cpp.dir/src/component.cpp.obj: CMakeFiles/archisys_cpp.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/archisys_cpp.dir/src/component.cpp.obj"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/archisys_cpp.dir/src/component.cpp.obj -MF CMakeFiles\archisys_cpp.dir\src\component.cpp.obj.d -o CMakeFiles\archisys_cpp.dir\src\component.cpp.obj -c C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\component.cpp
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj: CMakeFiles/archisys_cpp.dir/flags.make
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj: CMakeFiles/archisys_cpp.dir/includes_CXX.rsp
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj: C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/src/engine.cpp
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj: CMakeFiles/archisys_cpp.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj"
+	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj -MF CMakeFiles\archisys_cpp.dir\src\engine.cpp.obj.d -o CMakeFiles\archisys_cpp.dir\src\engine.cpp.obj -c C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\engine.cpp
 
-CMakeFiles/archisys_cpp.dir/src/component.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/archisys_cpp.dir/src/component.cpp.i"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\component.cpp > CMakeFiles\archisys_cpp.dir\src\component.cpp.i
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/archisys_cpp.dir/src/engine.cpp.i"
+	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\engine.cpp > CMakeFiles\archisys_cpp.dir\src\engine.cpp.i
 
-CMakeFiles/archisys_cpp.dir/src/component.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/archisys_cpp.dir/src/component.cpp.s"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\component.cpp -o CMakeFiles\archisys_cpp.dir\src\component.cpp.s
-
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj: CMakeFiles/archisys_cpp.dir/flags.make
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj: CMakeFiles/archisys_cpp.dir/includes_CXX.rsp
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj: C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/src/simulation_engine.cpp
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj: CMakeFiles/archisys_cpp.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj -MF CMakeFiles\archisys_cpp.dir\src\simulation_engine.cpp.obj.d -o CMakeFiles\archisys_cpp.dir\src\simulation_engine.cpp.obj -c C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulation_engine.cpp
-
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.i"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulation_engine.cpp > CMakeFiles\archisys_cpp.dir\src\simulation_engine.cpp.i
-
-CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.s"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulation_engine.cpp -o CMakeFiles\archisys_cpp.dir\src\simulation_engine.cpp.s
-
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj: CMakeFiles/archisys_cpp.dir/flags.make
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj: CMakeFiles/archisys_cpp.dir/includes_CXX.rsp
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj: C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/src/simulator.cpp
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj: CMakeFiles/archisys_cpp.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj -MF CMakeFiles\archisys_cpp.dir\src\simulator.cpp.obj.d -o CMakeFiles\archisys_cpp.dir\src\simulator.cpp.obj -c C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulator.cpp
-
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/archisys_cpp.dir/src/simulator.cpp.i"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulator.cpp > CMakeFiles\archisys_cpp.dir\src\simulator.cpp.i
-
-CMakeFiles/archisys_cpp.dir/src/simulator.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/archisys_cpp.dir/src/simulator.cpp.s"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\simulator.cpp -o CMakeFiles\archisys_cpp.dir\src\simulator.cpp.s
+CMakeFiles/archisys_cpp.dir/src/engine.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/archisys_cpp.dir/src/engine.cpp.s"
+	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\engine.cpp -o CMakeFiles\archisys_cpp.dir\src\engine.cpp.s
 
 CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj: CMakeFiles/archisys_cpp.dir/flags.make
 CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj: CMakeFiles/archisys_cpp.dir/includes_CXX.rsp
 CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj: C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/src/bindings.cpp
 CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj: CMakeFiles/archisys_cpp.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj -MF CMakeFiles\archisys_cpp.dir\src\bindings.cpp.obj.d -o CMakeFiles\archisys_cpp.dir\src\bindings.cpp.obj -c C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\src\bindings.cpp
 
 CMakeFiles/archisys_cpp.dir/src/bindings.cpp.i: cmake_force
@@ -133,24 +103,20 @@ CMakeFiles/archisys_cpp.dir/src/bindings.cpp.s: cmake_force
 
 # Object files for target archisys_cpp
 archisys_cpp_OBJECTS = \
-"CMakeFiles/archisys_cpp.dir/src/component.cpp.obj" \
-"CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj" \
-"CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj" \
+"CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj" \
 "CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj"
 
 # External object files for target archisys_cpp
 archisys_cpp_EXTERNAL_OBJECTS =
 
-archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/src/component.cpp.obj
-archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/src/simulation_engine.cpp.obj
-archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/src/simulator.cpp.obj
+archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/src/engine.cpp.obj
 archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/src/bindings.cpp.obj
 archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/build.make
 archisys_cpp.cp313-win_amd64.pyd: C:/Users/saabi/AppData/Local/Programs/Python/Python313/libs/python313.lib
 archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/linkLibs.rsp
 archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/objects1.rsp
 archisys_cpp.cp313-win_amd64.pyd: CMakeFiles/archisys_cpp.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX shared module archisys_cpp.cp313-win_amd64.pyd"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX shared module archisys_cpp.cp313-win_amd64.pyd"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\archisys_cpp.dir\link.txt --verbose=$(VERBOSE)
 	C:\mingw64\bin\strip.exe C:/Users/saabi/OneDrive/Documents/code/projects/archisys/backend/engine/build/archisys_cpp.cp313-win_amd64.pyd
 

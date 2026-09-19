@@ -84,12 +84,12 @@ clean: CMakeFiles/archisys_cpp.dir/clean
 CMakeFiles/archisys_cpp.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=1,2,3,4,5 "Built target archisys_cpp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=1,2,3 "Built target archisys_cpp"
 .PHONY : CMakeFiles/archisys_cpp.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/archisys_cpp.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles 5
+	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/archisys_cpp.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles 0
 .PHONY : CMakeFiles/archisys_cpp.dir/rule
@@ -101,7 +101,7 @@ archisys_cpp: CMakeFiles/archisys_cpp.dir/rule
 # codegen rule for target.
 CMakeFiles/archisys_cpp.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\archisys_cpp.dir\build.make CMakeFiles/archisys_cpp.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target archisys_cpp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\saabi\OneDrive\Documents\code\projects\archisys\backend\engine\build\CMakeFiles --progress-num=1,2,3 "Finished codegen for target archisys_cpp"
 .PHONY : CMakeFiles/archisys_cpp.dir/codegen
 
 # clean rule for target.
