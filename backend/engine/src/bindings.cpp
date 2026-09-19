@@ -7,14 +7,14 @@ namespace py = pybind11;
 using namespace archisys;
 
 PYBIND11_MODULE(archisys_cpp, m) {
-    m.doc() = "ArchiSys C++ Simulation Engine pybind11 Python Native Extension";
+    m.doc() = "ArchiSys C++ Simulation Engine pybind11 Native Extension";
 
     // ── ComponentMetrics ─────────────────────────────────────────────────────
     py::class_<ComponentMetrics>(m, "ComponentMetrics")
         .def(py::init<>())
-        .def_readonly("id",                 &ComponentMetrics::componentId)
-        .def_readonly("name",               &ComponentMetrics::componentName)
-        .def_readonly("type",               &ComponentMetrics::componentType)
+        .def_readonly("id",                 &ComponentMetrics::id)
+        .def_readonly("name",               &ComponentMetrics::name)
+        .def_readonly("type",               &ComponentMetrics::type)
         .def_readonly("cpu_usage_pct",      &ComponentMetrics::cpuUsagePct)
         .def_readonly("queue_depth",        &ComponentMetrics::queueDepth)
         .def_readonly("max_queue",          &ComponentMetrics::maxQueue)
@@ -26,9 +26,9 @@ PYBIND11_MODULE(archisys_cpp, m) {
         .def_readonly("throughput_per_sec", &ComponentMetrics::throughputPerSec)
         .def("to_dict", [](const ComponentMetrics& cm) {
             py::dict d;
-            d["id"]                 = cm.componentId;
-            d["name"]               = cm.componentName;
-            d["type"]               = cm.componentType;
+            d["id"]                 = cm.id;
+            d["name"]               = cm.name;
+            d["type"]               = cm.type;
             d["cpuUsagePct"]        = cm.cpuUsagePct;
             d["queueDepth"]         = cm.queueDepth;
             d["maxQueue"]           = cm.maxQueue;
@@ -78,9 +78,9 @@ PYBIND11_MODULE(archisys_cpp, m) {
             for (const auto& kv : sm.perComponent) {
                 const auto& cm = kv.second;
                 py::dict c;
-                c["id"]                 = cm.componentId;
-                c["name"]               = cm.componentName;
-                c["type"]               = cm.componentType;
+                c["id"]                 = cm.id;
+                c["name"]               = cm.name;
+                c["type"]               = cm.type;
                 c["cpuUsagePct"]        = cm.cpuUsagePct;
                 c["queueDepth"]         = cm.queueDepth;
                 c["maxQueue"]           = cm.maxQueue;

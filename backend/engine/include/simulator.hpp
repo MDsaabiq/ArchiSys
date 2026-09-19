@@ -8,39 +8,38 @@
 namespace archisys {
 
 /**
- * Simulator is a facade providing a clean, thread-safe, and minimal interface
+ * Simulator is a high-level facade providing a clean, thread-safe interface
  * exposed to Python via pybind11.
- * Python interacts exclusively with this class rather than internal C++ entities.
  */
 class Simulator {
 public:
     Simulator();
     ~Simulator();
 
-    // Loads and builds the architecture graph from a JSON string
+    // Loads graph topology and node parameters from a JSON string
     void loadArchitecture(const std::string& architectureJson);
 
-    // Starts the simulation execution loop (blocking until duration or stopped)
+    // Starts the simulation execution
     void start();
 
-    // Runs a single discrete simulation step (e.g. 0.01s)
-    void step(double dtSec);
+    // Executes a single discrete time step
+    void step(double dtSec = 0.01);
 
-    // Stops the simulation execution loop
+    // Stops the simulation
     void stop();
 
-    // Returns true if the simulation engine is currently running
+    // Checks if simulation is currently running
     bool isRunning() const;
 
-    // Returns a complete live telemetry snapshot
+    // Returns a live telemetry snapshot
     SystemMetrics getMetrics() const;
 
-    // Resets the simulator state
+    // Resets the simulator
     void reset();
 
 private:
     std::unique_ptr<SimulationEngine> engine_;
-    mutable std::mutex simulatorMutex_;
+    mutable std::mutex simMutex_;
 };
 
 } // namespace archisys

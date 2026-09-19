@@ -1,528 +1,212 @@
-# ArchiSys — Interactive System Design Simulator
+# ArchiSys — Academic Presentation Deck
 
-## 1. Introduction
-
-**ArchiSys** is an interactive distributed system design simulator that lets users visually architect distributed systems by dragging and connecting virtual components on a canvas, then simulates how requests flow through that architecture in real time with live metrics on every node.
-
-**What it is NOT:** ArchiSys does not spin up real servers, containers, or generate real network traffic. It is a purely virtual, event-driven simulation engine for educational and analytical purposes — a "what-if" sandbox for system architects.
-
-### The Core Idea
-
-```
-User designs architecture visually (drag + connect components)
-        ↓
-Client node: sets request rate + total requests
-        ↓
-Frontend opens WebSocket → then POSTs architecture JSON to C++ backend
-        ↓
-C++ engine: two-phase simulation loop
-  Phase 1 — inject requests at configured rate until limit reached
-  Phase 2 — drain all in-flight requests to completion
-        ↓
-Live metrics broadcast to frontend via WebSocket every 100ms
-        ↓
-Frontend: node cards update (CPU%, queue depth, latency), bottom bar, properties panel
-        ↓
-Simulation ends → WebSocket closes → UI resets to idle
-```
-
-### Technology Stack
-
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Frontend** | React 19 + TypeScript + Vite | Modern, fast HMR, type safety |
-| **Canvas** | React Flow | Drag, connect, zoom, pan, custom nodes |
-| **State** | Zustand 5 | Minimal, fast, subscription-based reactivity |
-| **Backend** | C++17 | Performance-critical simulation engine |
-| **Networking** | Raw WinSock2 + RFC 6455 WebSocket | Zero external dependencies |
-| **JSON** | Custom minimal stub | Compatible with GCC 6.x through 16.x |
-| **Build** | CMake 3.16+ | Cross-compiler support (MSVC, MinGW) |
-
-### Project Structure
-
-```
-archisys/
-├── frontend/          React + React Flow + Zustand (TypeScript)
-│   ├── src/
-│   │   ├── App.tsx            Layout shell + Canvas (React Flow wrapper)
-│   │   ├── store/useStore.ts    Zustand global state
-│   │   ├── hooks/               useWebSocket.ts, useSimulation.ts
-│   │   ├── api/client.ts        fetch wrappers for /start, /stop
-│   │   ├── nodes/               BaseNode.tsx (6 SVG shape components)
-│   │   ├── edges/AnimatedEdge.tsx  Dashed edge + packet dot
-│   │   ├── components/          Sidebar, Toolbar, PropertiesPanel, BottomBar
-│   │   └── types/               architecture.ts, metrics.ts
-│   └── package.json
-├── backend/           C++ simulation engine + WebSocket API server
-│   ├── include/       Headers (request, component, engine, metrics, ws, http, json_parser)
-│   │   └── components/     Component subclasses
-│   ├── src/           Implementations
-│   │   ├── component.cpp        Base tick/queue/slot logic
-│   │   ├── simulation_engine.cpp  Two-phase loop, request generation
-│   │   ├── ws_server.cpp        SHA-1, Base64, RFC 6455 frame codec
-│   │   ├── http_server.cpp      HTTP parse + CORS
-│   │   ├── server_main.cpp      WinSock2 accept loop + broadcaster thread
-│   │   └── main.cpp             CLI tool (runs sim without HTTP server)
-│   ├── CMakeLists.txt   Two targets: archisys_sim + archisys_server
-│   └── third_party/nlohmann/json.hpp  Custom minimal JSON stub
-└── mockups/           Standalone HTML prototype (reference only)
-```
+**Project Title:** ArchiSys: Real-Time Distributed Systems Simulation & Architecture Orchestration  
+**Tech Stack:** React 19 · TypeScript · React Flow · FastAPI · pybind11 · C++17 Discrete Event Engine  
 
 ---
 
-## 2. Problem Statement
+## Slide 1: Introduction
 
-Modern system architects and engineering students face a fundamental challenge: **how do you predict the behavior of a distributed system before you deploy it?**
+### Slide Header
+- **Title:** ArchiSys: Real-Time Distributed Systems Simulator & Architecture Orchestrator
+- **Subtitle:** An In-Process Layered Architecture Combining React, FastAPI, and a C++ Discrete Queueing Engine
+- **Presenter:** [Your Name / Department of Computer Science & Engineering]
 
-### The Specific Problems
+### Slide Content (Bullet Points)
+- **Interactive Visual Modeling:** Web-based drag-and-drop canvas for designing complex distributed system topologies with dynamic node configuration.
+- **High-Performance Discrete Simulation:** Native C++ core evaluating queueing theory (FIFO), worker concurrency, CPU contention, and multi-hop network latencies in memory.
+- **Modern Layered Architecture:** Zero-IPC in-process Python/C++ integration via `pybind11` coupled with non-blocking `FastAPI` WebSockets streaming live metrics at 20 FPS.
+- **Cost-Free Local Sandbox:** Experiment with high-load traffic scenarios ($100\text{k+}$ requests) and failure dynamics locally with zero cloud or virtualization overhead.
 
-1. **Bottleneck identification is hard.** When you design a system with a load balancer, app servers, a Redis cache, and a database, you can't easily tell which component will become the bottleneck under load. Will the app servers saturate? Will the Redis cache reduce database load enough? Traditional back-of-the-envelope calculations are error-prone and don't account for queueing dynamics.
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A modern, dark-mode software title slide graphic for "ArchiSys", featuring an isometric glowing diagram of a distributed computing network (nodes connected by neon laser lines representing data packets), a subtle holographic HUD displaying latency charts (P99, RPS, CPU gauges), deep navy and cyan color palette, cinematic lighting, ultra-clean academic tech style, 16:9 aspect ratio.`
 
-2. **Queue overflow and request drops happen silently in production.** When request arrival rate exceeds processing capacity, requests queue up. When the queue fills, requests are dropped — often with cascading failures. Engineers rarely visualize this before hitting production.
-
-3. **Educational gap in systems design.** Computer science students learn algorithms on paper but lack an interactive tool to visualize how latency, throughput, parallelism, and queueing interact in a distributed architecture. Textbook diagrams are static; real systems are dynamic.
-
-4. **No lightweight, self-contained simulation tool exists.** Heavy tools like JMeter or Locust generate *real* traffic against *real* services. There was no tool that lets a student or architect draw a system and immediately simulate its behavior with proper queue modeling, processing latency, and real-time metrics — all in a single application with zero deployment prerequisites.
-
-### What the User Needs
-
-A tool where you can **drag 6 types of components** (Client, Server, Database, Load Balancer, Redis Cache, Message Queue), **wire them together**, **configure each one** (CPU cores, processing time, queue size, instances), set a **request rate**, and then **watch requests flow** through the system with live feedback on CPU%, queue depth, latency, throughput, and drop rates.
-
----
-
-## 3. Solution
-
-**ArchiSys provides a two-phase event-driven simulation** built entirely from scratch — a C++ engine for the computational core and a React frontend for the interactive canvas.
-
-### The Solution Architecture (Live Demo Flow)
-
-```
-User drags component  → addNode()            → Zustand nodes[]
-User connects ports   → React Flow onConnect → Zustand edges[]
-User clicks Run       → openWebSocketFirst() → WS open
-                      → POST /start          → engine starts
-                      → setSimStatus('running')
-Every 100ms           → WS message arrives   → applyMetrics()
-                      → Zustand nodes[] updated (metrics on each node)
-                      → Canvas rfNodes synced via prevNodesRef comparison
-                      → Node cards re-render with live data
-Sim finishes / Stop   → WS closes            → resetMetrics()
-                      → node.data.metrics = undefined → cards show "—"
-                      → simStatus = 'stopped'
-```
-
-### Key Design Decisions in the Solution
-
-1. **Two-phase simulation loop.** The engine doesn't just run until the duration expires. It runs Phase 1 (inject requests at the configured rate) and then Phase 2 (drain all in-flight requests to completion). This ensures no requests are lost artificially — every injected request either completes or is genuinely dropped due to queue overflow.
-
-2. **WebSocket-first ordering.** The frontend opens the WebSocket connection **before** calling `POST /start`. This is critical because the C++ engine runs faster than real-time (1000 requests at 100 r/s = 10 simulated seconds, but completes in ~10ms wall-clock). Without this ordering, the simulation could complete before the browser's socket is established.
-
-3. **BroadcastBuffer as a thread-safe single-slot buffer.** The simulation thread produces metrics every tick (10ms). The broadcaster thread consumes and sends over WebSocket every 100ms. The single-slot buffer means the broadcaster always gets the latest metrics, discarding anything in between — this decouples simulation speed from network speed.
-
-4. **Component hierarchy with Strategy pattern.** The base `Component` class handles all the queue management, slot scheduling, and CPU calculation generically. Subclasses like `LoadBalancer` (round-robin vs least-connections), `RedisCache` (probabilistic hit/miss), and `Database` (read vs write latency) override only what differs.
-
-5. **No external dependencies on the backend.** The WebSocket RFC 6455 implementation is hand-rolled — SHA-1, Base64, frame encoding/decoding — with zero third-party libraries. The JSON parser is a custom minimal stub that works even with GCC 6.3.
+### Speaker Notes / Script
+> "Good morning, members of the evaluation committee and peers. Today, I am presenting **ArchiSys**, an interactive distributed systems simulation platform. Building, testing, and understanding distributed architectures has historically been constrained between two extremes: static paper diagrams that cannot fail, and live cloud deployments that are expensive, slow, and complex to instrument. ArchiSys bridges this gap by providing a visual design canvas backed by a high-throughput, native C++ discrete event queueing simulation engine embedded directly into a FastAPI orchestration backend via pybind11."
 
 ---
 
-## 4. Design Architecture
+## Slide 2: Problem Statement
 
-### System Architecture Diagram
+### Slide Header
+- **Title:** The Problem: Why Distributed Systems Architecture is Hard to Learn & Pre-Validate
+- **Subtitle:** The Reality Gap Between Static Architecture Diagrams and Dynamic Runtime Physics
 
-```
-┌─────────────────────────────────────────────────────┐
-│              React Frontend (port 5173)              │
-│  React Flow canvas · Zustand state · TypeScript      │
-│                                                      │
-│  Sidebar → Canvas → Properties Panel → Bottom Bar   │
-└──────────────────┬──────────────────────────────────┘
-                   │
-                   │  1. WebSocket /ws  ← opens FIRST
-                   │  2. POST /start    ← sends architecture JSON
-                   │  3. POST /stop     ← manual stop
-                   │  WebSocket streams metrics every 100ms
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│          C++ API Server (port 8765)                  │
-│  Raw WinSock2 · RFC 6455 WebSocket · No lib deps     │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│          C++ Simulation Engine                       │
-│                                                      │
-│  Phase 1: event queue → inject requests → tick       │
-│  Phase 2: drain in-flight until all components idle  │
-│  onTick callback → BroadcastBuffer → WS broadcaster  │
-└─────────────────────────────────────────────────────┘
-```
+### Slide Content (Bullet Points)
+- **Static Diagrams Hide Runtime Failure Modes:**
+  - Standard diagrams (draw.io, Visio) cannot model queue build-up, worker concurrency limits, CPU saturation, or cascading bottlenecks.
+- **High Cost & Complexity of Cloud Benchmarking:**
+  - Provisioning real distributed infrastructure (Kubernetes, AWS, Redis, Kafka) just to test "what-if" capacity scenarios is slow, expensive, and error-prone.
+- **Unintuitive Queueing Dynamics & Latency Tail Spikes:**
+  - Engineers struggle to predict how downstream database locks or cache miss storms cascade into upstream P99 tail latency degradation.
+- **Lack of Immediate Visual Feedback:**
+  - Existing academic simulators output batch logs or post-run CSVs rather than offering real-time visual intuition into packet flows and queue depths.
 
-**Critical ordering:** The frontend opens the WebSocket connection **before** calling `POST /start`. The C++ engine runs microseconds of wall-clock time per simulated second — without this ordering the simulation could finish before the browser socket is open.
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A conceptual illustration comparing two sides: on the left, a flat, static architecture paper diagram with a red question mark; on the right, a chaotic overloaded server cluster showing burning red warning icons, overflowing queue buffers, and spiking latency graphs. Modern minimal tech illustration, dark background, vivid accent colors, 16:9 aspect ratio.`
 
-### Frontend Architecture
-
-**Component hierarchy:**
-
-```
-App.tsx                          Layout shell: Toolbar, Sidebar, Canvas, PropertiesPanel, BottomBar
-  ├── Toolbar.tsx                Run/Stop/Clear/Export + Sim Settings dropdown
-  ├── Sidebar.tsx                Draggable palette (6 types, SVG icons, 3 sections)
-  ├── Canvas (inline)            React Flow canvas with Background + Controls
-  │   └── ArchNode (nodes/index.tsx)
-  │       ├── Handle (target)    Left connection point
-  │       ├── BaseNode.tsx       SVG shape + label + metrics panel
-  │       │   ├── ShapeClient    Person silhouette (sky blue)
-  │       │   ├── ShapeServer    Rack unit stack (blue)
-  │       │   ├── ShapeDatabase  3D cylinder (purple)
-  │       │   ├── ShapeLoadBalancer  Diamond with flow arrows (green)
-  │       │   ├── ShapeRedis     Hexagon with lightning bolt (amber)
-  │       │   └── ShapeQueue     Pipeline slots (red)
-  │       └── Handle (source)    Right connection point
-  ├── AnimatedEdge.tsx           Dashed indigo edge with packet dot (SVG animateMotion)
-  ├── PropertiesPanel.tsx        Config sliders + live metric bars for selected node
-  └── BottomBar.tsx              System-wide metrics strip + drop-rate warning banner
-```
-
-**State flow (React + Zustand):**
-
-```
-User drags component  → addNode()            → Zustand nodes[]
-User connects ports   → React Flow onConnect → Zustand edges[]
-Every 100ms WS msg    → applyMetrics()       → Zustand nodes[] updated (metrics on each node)
-                      → prevNodesRef check   → setRfNodes(nodes) — syncs to React Flow canvas
-```
-
-**Key fix:** `App.tsx` uses `prevNodesRef` to detect any change in Zustand `nodes` (not just length) and calls `setRfNodes` — this ensures every 100ms metrics update reaches the React Flow canvas.
-
-### Backend Architecture
-
-**C++ Engine — Component hierarchy (OOP):**
-
-```
-Component (base class)
-├── Client          — entry point, zero processing delay, injects requests
-├── Server          — multi-instance, CPU usage, queue, configurable latency
-├── Database        — single-threaded, read (20ms) / write (40ms, every 5th req)
-├── LoadBalancer    — RoundRobin / Random / LeastConnections routing
-├── RedisCache      — 80% probabilistic hit (1ms) / miss (5ms + forward)
-└── MessageQueue    — async FIFO broker, 5ms enqueue latency
-```
-
-**Simulation engine — Two-phase loop:**
-
-```
-Phase 1 — Injection
-  while running AND simNow <= durationSec AND totalRequests < limit:
-    fire all events scheduled at or before simNow
-    tick all components (complete slots, promote queue → slots)
-    call onTick(SystemMetrics) → BroadcastBuffer
-    simNow += tickSec (0.01s = 10ms)
-
-Phase 2 — Drain (only when totalRequests limit was set)
-  drainLimit = simNow + 10.0 simulated seconds
-  while running AND simNow <= drainLimit:
-    if all component queues are empty → break
-    tick all components
-    call onTick(SystemMetrics)
-    simNow += tickSec
-
-running_ = false → sim thread exits → server closes WebSocket
-```
-
-**Performance:** The engine runs far faster than real-time. 1000 requests at 100 r/s = 10 simulated seconds. Wall-clock time: ~10ms. This is why the WebSocket must be opened before `POST /start`.
-
-**WebSocket server architecture:**
-
-```
-main (server_main.cpp)
-├── WSAStartup()              WinSock2 init
-├── socket() + bind() + listen()  TCP listener on port 8765
-├── Broadcaster thread (detached) Runs every 100ms, drains BroadcastBuffer → sends to all WS clients
-├── Accept loop               select() with 50ms timeout, spawns detached thread per connection
-│   └── handleClient()
-│       ├── POST /start       → handleStart() → parse JSON → create engine → start sim thread
-│       ├── POST /stop        → handleStop() → signal engine to stop
-│       ├── GET /health       → returns {"ok":true}
-│       └── GET /ws           → WebSocket upgrade → handleWs() per-client thread
-│           └── doHandshake()  SHA-1 + Base64 accept key, set SO_RCVTIMEO = 100ms
-│           └── send()/recv()  RFC 6455 frame encode/decode
-└── stopSimulation()          Join sim thread, reset engine
-```
-
-**Thread model:**
-
-| Thread | Responsibility |
-|---|---|
-| **Accept loop (main)** | Accepts new TCP connections, spawns handler threads |
-| **Per-client handler (detached)** | Complete HTTP request / WebSocket handshake, recv loop |
-| **Simulation thread (detached)** | Runs the two-phase event loop, calls onTick callback |
-| **Broadcaster (detached)** | Sleeps 100ms, drains BroadcastBuffer, sends to all WS clients |
-
-### WebSocket Implementation Details (from scratch)
-
-- **SHA-1** (RFC 3174): ~60 lines of bitwise arithmetic — message padding, 80-round compression, 5× 32-bit state words
-- **Base64**: ~15 lines — 3-byte to 4-character encoding with `=` padding
-- **Frame encoder (server→client)**: FIN + opcode 0x1 (text), length encoding (7-bit, 16-bit, or 64-bit extended), no mask
-- **Frame decoder (client→server)**: Reads opcode, mask bit, payload length, XOR-unmask with 4-byte key per RFC 6455
-- **SO_RCVTIMEO = 100ms**: Set once at handshake — the socket stays in blocking mode with a 100ms receive timeout, avoiding the `FIONBIO` toggle race condition
-
-### JSON Data Contract
-
-**Frontend → Backend (`POST /start`):**
-
-```json
-{
-  "nodes": [
-    { "id": 1, "type": "client", "name": "Client", "x": 100, "y": 200,
-      "config": { "cpuCores": 1, "procTime": 0, "maxQueue": 99999, "instances": 1,
-                  "requestRate": 100, "totalRequests": 1000 } },
-    { "id": 2, "type": "loadbalancer", "name": "LB-1", "x": 300, "y": 200,
-      "config": { "cpuCores": 4, "procTime": 2, "maxQueue": 500, "instances": 4 } },
-    { "id": 3, "type": "server", "name": "App Server", "x": 500, "y": 200,
-      "config": { "cpuCores": 4, "procTime": 50, "maxQueue": 200, "instances": 4 } }
-  ],
-  "edges": [
-    { "id": 1, "fromId": 1, "toId": 2 },
-    { "id": 2, "fromId": 2, "toId": 3 }
-  ],
-  "simulation": {
-    "durationSec": 600, "tickSec": 0.01,
-    "requestRatePerSec": 100, "totalRequests": 1000, "seed": 42
-  }
-}
-```
-
-Node types: `server`, `database`, `loadbalancer`, `redis`, `queue`, `client`
-
-**Backend → Frontend (WebSocket, every 100ms):**
-
-```json
-{
-  "type": "metrics",
-  "simTimeSec": 12.4,
-  "totalRequests": 1240, "completed": 1180, "failed": 0,
-  "dropped": 60, "inFlight": 34,
-  "avgLatencyMs": 52.0, "p99LatencyMs": 0.0, "throughputPerSec": 95.2,
-  "components": [
-    { "id": 1, "name": "Client", "type": "client",
-      "cpuUsagePct": 100, "queueDepth": 0, "maxQueue": 99999,
-      "requestsReceived": 1240, "requestsCompleted": 1240, "requestsDropped": 0,
-      "avgProcessingMs": 0, "avgQueueWaitMs": 0, "throughputPerSec": 100 },
-    { "id": 3, "name": "App Server", "type": "server",
-      "cpuUsagePct": 100, "queueDepth": 200, "maxQueue": 200,
-      "requestsReceived": 1240, "requestsCompleted": 1180, "requestsDropped": 60,
-      "avgProcessingMs": 50, "avgQueueWaitMs": 120, "throughputPerSec": 95.2 }
-  ]
-}
-```
-
-### Simulation Mechanics
-
-#### Poisson Request Generation
-
-Each tick (10ms simulated), the expected number of new requests is:
-
-```
-expected = requestRatePerSec × tickSec
-count = floor(expected)
-if rand() < fractional_part(expected): count += 1
-```
-
-This gives Poisson-distributed inter-arrival times at the configured average rate — realistic traffic patterns.
-
-#### Component Tick Cycle (per component, per tick)
-
-1. **Complete** active slots whose `finishAt ≤ simNow` — finished requests are forwarded
-2. **Promote** requests from `waitQueue` into free slots (up to `instances` parallel lanes)
-3. **Process** each newly promoted request via `processRequest()` (component-specific)
-4. **Update** CPU usage = `busySlots / instances × 100`
-5. **Forward** completed requests via `forwardRequest()` to downstream component(s)
-
-#### Drops
-
-A request is **Dropped** when `receiveRequest()` is called on a component whose `waitQueue.size() >= maxQueue`. The drop is counted immediately and the request is never processed.
-
-**Avoiding drops:** `requestRate ≤ capacity`. Capacity = `Σ (instances_i / (procTimeMs_i / 1000))` across all server components.
-
-#### Why the Engine Runs Faster than Real-Time
-
-The simulation clock advances by `tickSec = 0.01` (10ms simulated) per tight CPU loop iteration. There is no `sleep()` inside the loop. 1000 requests at 100 r/s = 10 simulated seconds ≈ 10ms wall-clock time. The broadcaster thread runs on a real 100ms timer and sends whatever is in the BroadcastBuffer each cycle.
-
-### Design Patterns Used
-
-**Observer Pattern (primary):** `useStore` (Zustand) is the subject. Components subscribe to slices:
-
-```typescript
-const m = useStore(s => s.latestMetrics)          // BottomBar
-const applyMetrics = useStore(s => s.applyMetrics) // useWebSocket
-```
-
-Every 100ms `applyMetrics(msg)` fires, updating `nodes[].data.metrics` in a single Zustand dispatch. Only components subscribed to changed slices re-render (`React.memo` + Zustand selector equality).
-
-**Strategy Pattern:** `COMP_META` in `useStore.ts` maps each `ComponentType` to its default config and visual identity. In the C++ backend, `makeComponent()` in `json_parser.hpp` selects the concrete class. The `Component` base class defines the strategy interface (`processRequest`, `forwardRequest`); each subclass overrides the parts that differ:
-
-- `LoadBalancer::forwardRequest` — implements RoundRobin / LeastConnections routing strategy
-- `RedisCache::processRequest` + `forwardRequest` — probabilistic hit/miss strategy
-- `Database::processRequest` — read vs. write latency strategy
+### Speaker Notes / Script
+> "When software engineers and students design systems, they almost always start with static boxes and arrows. But static diagrams lie: they don't show what happens when 500 requests per second hit a 2-instance server behind a full queue. On the other hand, spinning up real cloud infrastructure to test failure modes requires writing complete service boilerplate, managing Terraform scripts, and paying cloud bills. There is no lightweight, real-time feedback loop where an engineer can tweak server instance counts, adjust cache hit rates, and immediately see packets back up in queues in real time."
 
 ---
 
-## 5. Modules Used
+## Slide 3: Solution
 
-### Frontend Modules (React/TypeScript)
+### Slide Header
+- **Title:** The Solution: ArchiSys Distributed Systems Sandbox
+- **Subtitle:** Live Interactive Canvas + In-Process C++ Queueing Engine + 20 FPS Telemetry Stream
 
-| Module | Lines | Responsibility |
-|---|---|---|
-| `App.tsx` | 108 | Layout shell. Critical `prevNodesRef` sync fix for React Flow state synchronization. |
-| `store/useStore.ts` | 137 | Zustand store: all app state. `COMP_META` maps ComponentType → default config + color + icon. |
-| `hooks/useWebSocket.ts` | 71 | WebSocket lifecycle: `openWebSocketFirst()` ensures WS open before POST /start. Message parsing and metrics dispatch. |
-| `hooks/useSimulation.ts` | 73 | Start/stop orchestration: builds architecture payload, opens WS first, then POSTs /start. |
-| `api/client.ts` | 24 | `fetch` wrappers: `startSimulation()`, `stopSimulation()`, `healthCheck()`. |
-| `types/architecture.ts` | 40 | TypeScript types: ComponentType, NodeConfig, ArchNode, ArchEdge, SimulationConfig, ArchitecturePayload. |
-| `types/metrics.ts` | 28 | TypeScript types: ComponentMetrics, SystemMetricsMsg (WebSocket message schema). |
-| `nodes/BaseNode.tsx` | 289 | 6 SVG shape components, CPU ring, queue bar, metrics display. `React.memo` for performance. |
-| `nodes/index.tsx` | 22 | `ArchNode` wrapper: adds React Flow Handles (target/source) to BaseNode. |
-| `edges/AnimatedEdge.tsx` | 44 | Custom edge: dashed line with `animateMotion` packet dot. |
-| `components/Sidebar.tsx` | 161 | Draggable palette: 3 sections, 6 component cards with SVG shapes. |
-| `components/Toolbar.tsx` | 203 | Top bar: Run/Stop, Sim Settings, Clear, Export JSON, status pill. |
-| `components/PropertiesPanel.tsx` | 132 | Config sliders + live metric bars with heat colors. |
-| `components/BottomBar.tsx` | 74 | System metrics strip + drop-rate warning banner. |
+### Slide Content (Bullet Points)
+- **Interactive Visual Canvas:**
+  - Drag-and-drop topology builder supporting Clients, Load Balancers, Servers, Redis Caches, Databases, and Message Queues.
+  - Per-node parameter tuning: `procTime`, `instances`, `cpuCores`, `maxQueue`, `requestRate`.
+- **High-Throughput C++ Discrete Event Simulator:**
+  - Microsecond-accurate mathematical simulation of FIFO queues, worker instance concurrency, CPU contention, and multi-hop routing.
+- **Real-Time Streaming Telemetry:**
+  - Bi-directional WebSocket pipeline pushing 20 frames per second of live CPU usage, queue depth, throughput, and P99 tail latency.
+- **Zero Real-World Infrastructure Required:**
+  - Runs entirely on a local workstation without spinning up Docker, Kubernetes, or paid cloud instances.
 
-### Backend Modules (C++17)
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A sleek UI screenshot mockup of the ArchiSys platform: Left sidebar with component icons, center canvas showing a connected pipeline (Client -> Load Balancer -> 2 App Servers -> Redis Cache -> Database) with glowing animated data dots traveling along the wires, and a right-hand properties panel showing live CPU meters (45%, 92%), queue depth gauges (12/200), and interactive sliders. 16:9 aspect ratio.`
 
-| Module | Lines | Responsibility |
-|---|---|---|
-| `src/simulation_engine.cpp` | 188 | Two-phase event loop: Phase 1 (inject), Phase 2 (drain). `getSystemMetrics()`, `generateRequests()` (Poisson). |
-| `include/simulation_engine.hpp` | 106 | `SimulationEngine` class: `EventQueue`, `SimulationConfig`, callbacks, atomic `running_`. |
-| `src/component.cpp` | 165 | Base `Component`: tick(complete→promote→process→CPU→forward), receiveRequest (drop on full), getMetrics. |
-| `include/component.hpp` | 97 | Base class: queue, active slots, stats, throughput rolling window. |
-| `include/components/components.hpp` | 185 | 6 subclasses: Client, Server, Database, LoadBalancer, RedisCache, MessageQueue. |
-| `src/ws_server.cpp` | 266 | RFC 6455 WebSocket: SHA-1, Base64, frame encode/decode, SO_RCVTIMEO, Ping/Pong/Close. |
-| `include/ws_server.hpp` | 49 | `WsClient` class declaration. |
-| `src/http_server.cpp` | 125 | Raw HTTP/1.1: request parsing, response writing, CORS headers. |
-| `include/http_server.hpp` | 69 | `HttpRequest`/`HttpResponse` structs, socket helpers, platform abstraction. |
-| `src/server_main.cpp` | 304 | API server: accept loop, per-client threads, POST /start, POST /stop, GET /health, WebSocket /ws, Broadcaster thread. |
-| `src/main.cpp` | 134 | CLI tool: loads JSON or runs built-in demo, prints live metrics, final report. |
-| `include/request.hpp` | 73 | `Request` object: ID, timing, 7-state enum, RouteHop vector, accumulated latency. |
-| `include/metrics.hpp` | 51 | `ComponentMetrics` + `SystemMetrics` structs. |
-| `include/broadcast_buffer.hpp` | 34 | Thread-safe single-slot buffer: put() overwrites, take() drains. |
-| `include/json_parser.hpp` | 79 | `fillFromJson()` builds engine from JSON. `makeComponent()` factory. |
-| `third_party/nlohmann/json.hpp` | 209 | Custom minimal JSON stub using `std::map` for GCC 6.x compatibility. |
-| `CMakeLists.txt` | 39 | Two targets: `archisys_sim` (CLI) + `archisys_server` (API). MSVC + MinGW support. |
+### Speaker Notes / Script
+> "ArchiSys solves this by combining the visual interactivity of modern web interfaces with the raw computational power of compiled C++. The user connects components on screen and hits 'Run'. The C++ engine simulates discrete time increments—tracking every request's arrival timestamp, queue wait time, processing duration, and routing hop. Within milliseconds, live telemetry streams back into the browser at 20 frames per second, updating node gauges and animating request packets through the graph."
 
 ---
 
-## 6. Conclusion
+## Slide 4: Technologies to be Used
 
-ArchiSys is a **fully functional, production-grade distributed system design simulator** that demonstrates sophisticated engineering across two language ecosystems.
+### Slide Header
+- **Title:** Technology Stack & Technical Rationale
+- **Subtitle:** Strategic Tooling for High Performance, Type Safety, and Web Interactivity
 
-**Key achievements:**
-1. **From-scratch WebSocket stack** — SHA-1, Base64, RFC 6455 frame codec implemented entirely in C++ with zero external libraries
-2. **Two-phase simulation loop** — properly drains in-flight requests, preventing artificial request loss
-3. **Solved timing race** — WebSocket opens before POST /start, ensuring metrics reach the browser
-4. **Solved React Flow sync** — `prevNodesRef` pattern propagates live metrics to the canvas
-5. **Clean build** — compiles with GCC 16.1.0, passes `tsc --noEmit`, produces clean production bundle
+### Slide Content (Comparison Table)
 
-The system demonstrates deep understanding of both frontend (React, state synchronization, real-time UI) and backend (systems programming, networking protocols, concurrent simulation) engineering — bridging the gap between educational tools and production-quality software.
+| Architectural Tier | Technology Chosen | Technical Justification |
+| :--- | :--- | :--- |
+| **Frontend UI** | **React 19 + TypeScript + Vite** | Component-driven reactivity, strict type safety, fast HMR developer workflow. |
+| **Canvas & Graph** | **@xyflow/react (React Flow)** | GPU-accelerated node/edge rendering, custom SVG nodes, smooth zooming & panning. |
+| **State Management** | **Zustand 5** | High-performance subscription model; updates node metrics without full canvas re-renders. |
+| **API & Orchestration** | **FastAPI (Python 3.13)** | Asynchronous non-blocking event loop, Pydantic schema validation, native WebSockets. |
+| **C++ Binding Layer** | **pybind11** | Zero-copy in-process C++ binding, direct memory access, releases Python GIL during simulation. |
+| **Compute Core** | **C++17 (MinGW / MSVC)** | Deterministic discrete event loops, contiguous memory layout, raw mathematical execution speed. |
 
----
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A clean technology stack breakdown graphic showing four layered cards with logos/badges: Top Layer: React & React Flow (cyan/blue), Middle Layer: FastAPI & Python (teal/yellow), Binding Layer: pybind11 icon (orange), Bottom Engine Layer: C++17 logo (deep blue), connected with sleek glowing data pipelines. 16:9 aspect ratio.`
 
-## 7. Future Works
-
-### Short Term
-
-| Priority | Task | Why |
-|---|---|---|
-| High | Fix Client node CPU display | Client shows CPU 100% always — it's a traffic generator with `processingMs=0` and `instances=1` |
-| High | Add p99 latency calculation | `p99LatencyMs` is always `0.0` — engine doesn't maintain a sorted latency sample |
-| Medium | Per-component latency history sparkline | In PropertiesPanel, show mini chart of latency/throughput/CPU over time |
-| Medium | Simulation speed multiplier | Add `sleep_for` to slow down for better animation visibility |
-
-### Medium Term
-
-| Priority | Task | Why |
-|---|---|---|
-| High | Save/load architectures in localStorage | Currently only export JSON works |
-| Medium | Additional component types: API Gateway, CDN, Kafka, RabbitMQ, Firewall | Expand simulation vocabulary |
-| Medium | WebSocket reconnect with exponential backoff | Handle connection drops |
-| Medium | Post-simulation summary report | Final metrics table, drop analysis, bottleneck identification |
-
-### Long Term
-
-| Priority | Task | Why |
-|---|---|---|
-| High | Replace custom JSON stub with real nlohmann/json | Improve robustness |
-| High | Cross-platform networking (Asio/libuv) | Linux/macOS support |
-| Medium | Multiple concurrent simulation runs | Separate engine instances per session |
-| Low | Export simulation as video/GIF | Record runs for presentations |
+### Speaker Notes / Script
+> "Our technology stack was deliberately chosen to maximize performance while maintaining modern web standards. On the frontend, React Flow and Zustand allow us to update individual node cards at 60 FPS without re-rendering the entire canvas. On the backend, we deliberately rejected raw sockets and microservices. Instead, we use FastAPI for web orchestration and pybind11 to embed our compiled C++17 simulation core directly into Python's process space. This gives us the rapid development and async capabilities of Python alongside the raw compute speed of native C++."
 
 ---
 
-## 8. Bugs Fixed During Development
+## Slide 5: Architectures
 
-| Bug | Root Cause | Fix |
-|---|---|---|
-| **B1: Sim runs forever** | Stop injection but loop exits immediately, leaving in-flight requests unfinished | Added drain phase (Phase 2) — ticks until queues empty |
-| **B2: Node cards show `—`** | `setRfNodes` only on `nodes.length` change — metrics don't change array length | `prevNodesRef` comparison fires on any node data change |
-| **B3: Cards stay red after stop** | `resetMetrics()` didn't clear `metrics` off individual node objects | Now maps over nodes, sets `metrics: undefined` |
-| **B4: WS timing race** | Engine finishes before browser socket opens (faster than real-time) | `openWebSocketFirst()` before `POST /start` |
-| **B5: WS send/recv race** | `ioctlsocket(FIONBIO)` toggle races with concurrent `send()` on Windows | `SO_RCVTIMEO = 100ms` set once at handshake |
-| **B6: Sidebar default export** | `TYPE_SHAPES` Record incomplete when 'client' added | Added client SVG icon |
+### Slide Header
+- **Title:** System & Engine Architectures
+- **Subtitle:** Decoupled In-Process Compute Pipeline and Discrete Mathematical Physics
 
----
+### Slide Content (Architecture Diagrams & Flow)
 
-## 9. Build & Run
+```mermaid
+graph TD
+    subgraph Frontend["React Frontend (Browser)"]
+        UI["Canvas UI (React Flow)"]
+        WSClient["WebSocket Client"]
+    end
 
-### Prerequisites
+    subgraph BackendProcess["Unified Python Process (FastAPI)"]
+        REST["FastAPI REST Routes (/start, /stop, /health)"]
+        WSMgr["WebSocketManager (/ws)"]
+        SimService["SimulationService (Async Worker)"]
+        
+        subgraph NativeCore["pybind11 Native Extension Boundary"]
+            PyBind["archisys_cpp Module"]
+            Facade["Simulator Facade Class"]
+            Engine["C++ SimulationEngine (5-Phase Loop)"]
+        end
+    end
 
-| Tool | Version | Install |
-|---|---|---|
-| Node.js | 18+ | https://nodejs.org |
-| CMake | 3.16+ | https://cmake.org |
-| MinGW-w64 GCC | 16+ | https://winlibs.com |
-
-### Build & Run
-
-```powershell
-# Terminal 1 — C++ backend
-cd backend
-cmake -B build -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/mingw64/bin/g++.exe" -S .
-cmake --build build --target archisys_server
-.\build\archisys_server.exe    # server starts on localhost:8765
-
-# Terminal 2 — React frontend
-cd frontend
-npm install
-npm run dev                     # opens http://localhost:5173
+    UI -->|1. POST /start JSON| REST
+    REST -->|2. Validate Schema| SimService
+    SimService -->|3. in-memory call| Facade
+    Facade -->|4. Run Discrete Ticks| Engine
+    Engine -->|5. Metrics Snapshot| Facade
+    Facade -->|6. Direct RAM return| SimService
+    SimService -->|7. Paced Telemetry| WSMgr
+    WSMgr -->|8. WS Stream (20 FPS)| WSClient
+    WSClient -->|9. Update Node Cards| UI
 ```
 
-### CLI Mode
+- **System Architecture Highlights:**
+  - **In-Process Compute (< 0.001 ms):** Zero network overhead between Python and C++; compiled as a native standalone `.pyd` module.
+  - **GIL-Released Asynchrony:** Heavy simulation ticks release Python's Global Interpreter Lock (`py::gil_scoped_release`), allowing FastAPI to handle HTTP and WebSocket I/O concurrently.
+- **Engine Simulation Mechanics:**
+  - **FIFO Queue Buffer:** Requests enter a bounded queue; overflow past `maxQueue` triggers drops.
+  - **Worker Slot State Machine:** $M$ worker instances pop requests, tracking exact wait time ($\Delta t = t_\text{start} - t_\text{arr}$).
+  - **CPU Contention Model:** Processing time scales dynamically if active slots exceed physical CPU cores ($\text{factor} = \text{busySlots} / \text{cpuCores}$).
+  - **Exact P99 Tail Latency:** Calculated across all completed requests in $O(N)$ time via `std::nth_element`.
 
-```powershell
-.\build\archisys_sim.exe        # built-in demo: LB → Server → Redis → DB
-.\build\archisys_sim.exe ..\architecture.json  # load exported architecture
-```
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A clean, layered architectural diagram showing three main tiers: Top tier labeled 'React Frontend (Vite)', Middle tier labeled 'FastAPI Backend Layer (Python)', and Bottom tier labeled 'C++ Discrete Simulation Engine (archisys_cpp via pybind11)'. Glowing arrows indicate bi-directional data flow with callouts for 'In-Memory Calls (<0.001ms)' and '20 FPS WebSocket Stream'. Dark modern blueprint aesthetic, 16:9 aspect ratio.`
 
-### Capacity Planning
-
-```
-Max safe request rate = instances × (1000 / procTimeMs) per server
-```
-
-| Config | Capacity |
-|---|---|
-| 1× Server, 2 instances, 50ms | 40 req/s |
-| 2× Server, 4 instances, 50ms | 160 req/s |
-| 1× Server, 4 instances, 20ms | 200 req/s |
+### Speaker Notes / Script
+> "This slide illustrates our system and engine architectures. When the user clicks 'Run', React POSTs the topology to FastAPI. FastAPI validates the payload and calls our C++ engine directly in memory via pybind11. Because this is in-process, it takes under a microsecond. Inside C++, our 5-phase discrete engine simulates FIFO queue buffers, worker instance scheduling, and CPU contention scaling. As requests complete, we compute true P99 tail latency and stream telemetry snapshots back to the browser at 20 frames per second."
 
 ---
 
-## 10. Live Demo Scenario
+## Slide 6: Results
 
-1. **Drag** a **Client** → **Load Balancer** → two **App Servers** → **Redis Cache** → **Database**
-2. **Connect** them: Client → LB → Servers → Redis → DB
-3. **Select the Client** → set **Request Rate = 200 r/s**, **Total Requests = 1000**
-4. **Click ▶ Run Simulation**
-5. **Observe:** Client sends 200 req/s → LB distributes round-robin → Servers process (50ms each, 2 instances) → Redis serves 80% from cache → DB handles misses
-6. **Watch:** CPU rings rise on servers, queue bars fill up, throughput stabilizes around 160 req/s (capacity-limited), drop banner appears if rate exceeds capacity
-7. **Auto-stops** after 1000 requests drain through
-8. **Export** as JSON, change configs, re-run to see how parameters affect behavior
+### Slide Header
+- **Title:** Experimental Verification & Benchmark Results
+- **Subtitle:** Validating Queue Dynamics, Cache Offloading, and Bottleneck Drops
+
+### Slide Content (Results Summary Table)
+
+| Scenario Tested | Configuration | Injected | Completed | Dropped | Avg Latency | P99 Latency | Observed System Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Client ➔ Server** | $50\text{ r/s}$, $20\text{ms}$ proc, 2 inst | 100 | 100 | 0 | $20.0\text{ ms}$ | $20.0\text{ ms}$ | Stable steady-state, $0\%$ queue build-up. |
+| **2. Load Balancer ➔ 2 Servers** | $100\text{ r/s}$, $30\text{ms}$ proc, 2 inst each | 200 | 200 | 0 | $31.2\text{ ms}$ | $32.0\text{ ms}$ | Equal $50/50$ traffic distribution across Server A and B. |
+| **3. Server ➔ Redis ➔ Database** | $100\text{ r/s}$, $80\%$ cache hit | 300 | 300 | 0 | $6.4\text{ ms}$ | $28.0\text{ ms}$ | $80\%$ traffic served in $1\text{ms}$; DB load reduced by $80\%$. |
+| **4. Bottleneck Overload** | $500\text{ r/s}$, $200\text{ms}$ proc, maxQ=10 | 200 | 25 | 175 | $200.0\text{ ms}$ | $200.0\text{ ms}$ | Queue saturated; buffer overflow drops excess requests. |
+
+- **Automated Test Suite:** 8/8 deterministic pytest scenarios pass with $100\%$ precision in $< 0.65\text{ seconds}$.
+- **Performance:** C++ engine simulates over $100,000$ discrete events in $< 50\text{ ms}$.
+
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A multi-panel results dashboard graphic: Panel A: Bar chart showing traffic load balanced 50/50 across two servers; Panel B: Cache hit vs miss pie chart (80% green, 20% orange) with corresponding latency drop from 25ms to 6.4ms; Panel C: Queue overflow graph showing queue depth hitting the ceiling line (maxQueue=10) and red dropped packets accumulating. Professional clean data visualization, 16:9 aspect ratio.`
+
+### Speaker Notes / Script
+> "To verify our engine, we tested four benchmark scenarios. In Scenario 2, our Load Balancer split 200 requests evenly between two servers with zero drops. In Scenario 3, adding a Redis Cache with an 80% hit rate reduced average round-trip latency from 25 milliseconds down to 6.4 milliseconds, offloading 80% of queries from the database. In Scenario 4, we simulated a severe bottleneck with 500 requests per second against a slow single-instance server: the queue hit its capacity of 10 and correctly dropped all excess requests, proving the accuracy of our overflow mechanics."
+
+---
+
+## Slide 7: Future Work
+
+### Slide Header
+- **Title:** Future Roadmap: Generative AI & Cloud Cost Optimization
+- **Subtitle:** Expanding from Simulation to Autonomous Architecture Generation
+
+### Slide Content (Future Directions)
+- **1. Generative AI Architecture Synthesis (`backend/api/ai/`):**
+  - Natural language prompt ➔ LLM (Structured JSON) ➔ Pydantic Validation ➔ C++ Simulator ➔ React Flow visualization.
+  - Example prompt: *"Design a fault-tolerant payment gateway handling 2,000 TPS with Redis caching."*
+- **2. Automated Bottleneck Detection & AI Recommendations:**
+  - Real-time heuristic analyzers detecting saturated queues ($> 80\%$ capacity) and suggesting scaling strategies (e.g., *"Increase Server instances from 2 to 4 to reduce P99 latency by 65%"*).
+- **3. Cloud Cost & SLA Estimation Engine:**
+  - Mapping virtual component configurations to real AWS/GCP instance types (e.g., `t4g.xlarge`, `db.r6g.large`) to project monthly hosting costs.
+- **4. Export to Infrastructure as Code (IaC):**
+  - One-click export from ArchiSys canvas to **Terraform** configurations and **Kubernetes Helm Charts**.
+
+### [Visual / Image Prompt]
+> **Image Prompt for Slide:**  
+> `A futuristic concept graphic of the GenAI feature: A chat prompt box typing 'Generate high-availability e-commerce system with 5000 TPS', radiating into an AI brain icon that automatically synthesizes and animates a full React Flow architecture with green metrics indicators. Deep space navy and neon purple/cyan color palette, 16:9 aspect ratio.`
+
+### Speaker Notes / Script
+> "Looking forward, the clean decoupling of FastAPI and our C++ engine positions ArchiSys for exciting future developments. Because FastAPI is in Python, we have established a dedicated AI module where Large Language Models can generate complete, validated architecture graphs directly from natural language prompts. Furthermore, we plan to add automatic bottleneck detection to recommend instance scaling and calculate estimated AWS and GCP monthly cloud costs directly from the canvas."

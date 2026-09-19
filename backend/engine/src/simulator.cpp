@@ -1,7 +1,6 @@
 #include "simulator.hpp"
 #include "json_parser.hpp"
 #include <nlohmann/json.hpp>
-#include <stdexcept>
 
 namespace archisys {
 
@@ -13,7 +12,7 @@ Simulator::~Simulator() {
 }
 
 void Simulator::loadArchitecture(const std::string& architectureJson) {
-    std::lock_guard<std::mutex> lk(simulatorMutex_);
+    std::lock_guard<std::mutex> lock(simMutex_);
     if (!engine_) {
         engine_ = std::make_unique<SimulationEngine>();
     }
@@ -22,15 +21,13 @@ void Simulator::loadArchitecture(const std::string& architectureJson) {
 }
 
 void Simulator::start() {
-    // start() will block inside engine_->start() while running.
-    // GIL is released at the pybind11 boundary.
     if (engine_) {
         engine_->start();
     }
 }
 
 void Simulator::step(double dtSec) {
-    std::lock_guard<std::mutex> lk(simulatorMutex_);
+    std::lock_guard<std::mutex> lock(simMutex_);
     if (engine_) {
         engine_->step(dtSec);
     }
@@ -54,7 +51,7 @@ SystemMetrics Simulator::getMetrics() const {
 }
 
 void Simulator::reset() {
-    std::lock_guard<std::mutex> lk(simulatorMutex_);
+    std::lock_guard<std::mutex> lock(simMutex_);
     if (engine_) {
         engine_->reset();
     }

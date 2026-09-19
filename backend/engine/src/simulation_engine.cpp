@@ -9,137 +9,97 @@ namespace archisys {
 
 SimulationEngine::SimulationEngine() = default;
 
-SimulationEngine::SimulationEngine(SimulationEngine&& o) noexcept {
-    std::lock_guard<std::mutex> lk(o.engineMutex_);
-    components_         = std::move(o.components_);
-    allRequests_        = std::move(o.allRequests_);
-    completedLatencies_ = std::move(o.completedLatencies_);
-    config_             = o.config_;
-    simNow_             = o.simNow_;
-    running_.store(o.running_.load());
-    nextRequestId_      = o.nextRequestId_;
-    entryPointId_       = o.entryPointId_;
-    totalRequests_      = o.totalRequests_;
-    completedRequests_  = o.completedRequests_;
-    failedRequests_     = o.failedRequests_;
-    droppedRequests_    = o.droppedRequests_;
-    sumLatencyMs_       = o.sumLatencyMs_;
-    onTick              = std::move(o.onTick);
+SimulationEngine::~SimulationEngine() {
+    stop();
 }
 
-SimulationEngine& SimulationEngine::operator=(SimulationEngine&& o) noexcept {
-    if (this != &o) {
-        std::scoped_lock lock(engineMutex_, o.engineMutex_);
-        components_         = std::move(o.components_);
-        allRequests_        = std::move(o.allRequests_);
-        completedLatencies_ = std::move(o.completedLatencies_);
-        config_             = o.config_;
-        simNow_             = o.simNow_;
-        running_.store(o.running_.load());
-        nextRequestId_      = o.nextRequestId_;
-        entryPointId_       = o.entryPointId_;
-        totalRequests_      = o.totalRequests_;
-        completedRequests_  = o.completedRequests_;
-        failedRequests_     = o.failedRequests_;
-        droppedRequests_    = o.droppedRequests_;
-        sumLatencyMs_       = o.sumLatencyMs_;
-        onTick              = std::move(o.onTick);
-    }
-    return *this;
-}
-
-// ── addComponent ─────────────────────────────────────────────────────────────
 void SimulationEngine::addComponent(std::shared_ptr<Component> comp) {
-    std::lock_guard<std::mutex> lk(engineMutex_);
-    components_[comp->id()] = std::move(comp);
+    std::lock_guard<std::mutex> lock(engineMutex_);
+    if (comp) {
+        components_[comp->getId()] = comp;
+    }
 }
 
-// ── addEdge ───────────────────────────────────────────────────────────────────
 void SimulationEngine::addEdge(int fromId, int toId) {
-    std::lock_guard<std::mutex> lk(engineMutex_);
+    std::lock_guard<std::mutex> lock(engineMutex_);
     Component* from = getComponent(fromId);
-    Component* to   = getComponent(toId);
-    if (!from || !to) throw std::runtime_error("addEdge: Unknown component ID in architecture edge");
+    Component* to = getComponent(toId);
+    if (!from || !to) {
+        throw std::runtime_error("Cannot add edge: Unknown component ID");
+    }
     from->addOutgoing(to);
     to->addIncoming(from);
 }
 
-// ── setEntryPoint ─────────────────────────────────────────────────────────────
 void SimulationEngine::setEntryPoint(int componentId) {
-    std::lock_guard<std::mutex> lk(engineMutex_);
+    std::lock_guard<std::mutex> lock(engineMutex_);
     entryPointId_ = componentId;
 }
 
-// ── start ─────────────────────────────────────────────────────────────────────
-// Main Simulation Lifecycle:
-// Iterates through discrete time increments (config_.tickSec) executing the 5 core
-// simulation phases until the duration expires, target requests are satisfied,
-// or stop() is requested.
+// ── Start Simulation ─────────────────────────────────────────────────────────
+// Runs the simulation until completion or stopped.
 void SimulationEngine::start() {
-    if (components_.empty()) throw std::runtime_error("Cannot start: No components registered in engine");
+    if (components_.empty()) {
+        throw std::runtime_error("Cannot start simulation: No components registered");
+    }
 
     srand(static_cast<unsigned>(config_.seed));
-    running_.store(true);
-    double dt = std::max(0.001, config_.tickSec);
+    isRunning_.store(true);
+    double dt = config_.tickSec > 0.0 ? config_.tickSec : 0.01;
 
-    // Main injection and processing loop
-    while (running_.load() && simNow_ <= config_.durationSec) {
-        // Stop if totalRequests limit is reached and everything is drained
+    while (isRunning_.load() && simNowSec_ <= config_.durationSec) {
+        // If request quota is reached, check if in-flight requests are drained
         if (config_.totalRequests > 0 && totalRequests_ >= config_.totalRequests) {
-            // Check if any in-flight requests remain in queues or worker slots
             bool hasInFlight = false;
             for (const auto& kv : components_) {
-                if (kv.second->queueDepth() > 0 || kv.second->busySlots() > 0) {
+                if (kv.second->getQueueDepth() > 0 || kv.second->getBusyWorkers() > 0) {
                     hasInFlight = true;
                     break;
                 }
             }
-            if (!hasInFlight) break; // Finished all requests
+            if (!hasInFlight) break; // All requests completely processed
         }
 
-        // Phase 1: Request generation (Client injection)
-        generateRequests(dt);
-
-        // Phase 2: Component state progression & request forwarding
-        updateComponents(dt);
-
-        // Phase 3: Telemetry streaming hook
-        if (onTick) {
-            onTick(getSystemMetrics());
-        }
-
-        // Phase 4: Advance simulation clock
-        advanceSimulationTime(dt);
+        step(dt);
     }
 
-    running_.store(false);
+    isRunning_.store(false);
 }
 
-// ── step ──────────────────────────────────────────────────────────────────────
-// Executes a single discrete tick of the simulation.
+// ── Step Simulation ──────────────────────────────────────────────────────────
+// Executes a single discrete time increment (dtSec).
 void SimulationEngine::step(double dtSec) {
+    std::lock_guard<std::mutex> lock(engineMutex_);
     if (components_.empty()) return;
-    double dt = dtSec > 0.0 ? dtSec : config_.tickSec;
 
+    double dt = dtSec > 0.0 ? dtSec : 0.01;
+
+    // 1. Generate new requests at entry point
     generateRequests(dt);
-    updateComponents(dt);
-    advanceSimulationTime(dt);
 
+    // 2. Update all components in the topology
+    updateComponents(dt);
+
+    // 3. Advance simulation clock
+    simNowSec_ += dt;
+
+    // 4. Optional on-tick callback
     if (onTick) {
         onTick(getSystemMetrics());
     }
 }
 
-// ── stop ──────────────────────────────────────────────────────────────────────
 void SimulationEngine::stop() {
-    running_.store(false);
+    isRunning_.store(false);
+    if (simThread_.joinable()) {
+        simThread_.join();
+    }
 }
 
-// ── reset ─────────────────────────────────────────────────────────────────────
 void SimulationEngine::reset() {
-    std::lock_guard<std::mutex> lk(engineMutex_);
-    running_.store(false);
-    simNow_ = 0.0;
+    std::lock_guard<std::mutex> lock(engineMutex_);
+    stop();
+    simNowSec_ = 0.0;
     nextRequestId_ = 1;
     totalRequests_ = 0;
     completedRequests_ = 0;
@@ -147,124 +107,111 @@ void SimulationEngine::reset() {
     droppedRequests_ = 0;
     sumLatencyMs_ = 0.0;
     allRequests_.clear();
-    completedLatencies_.clear();
+    completedLatenciesMs_.clear();
+
     for (auto& kv : components_) {
-        kv.second->resetStats();
+        kv.second->reset();
     }
 }
 
-// ── Phase 1: generateRequests ────────────────────────────────────────────────
-// Simulates user request traffic arrivals during the current tick interval [simNow, simNow + dt].
-// Uses a Poisson-distributed random variable matching requestRatePerSec.
+// ── Generate Requests (Poisson Arrival Model) ────────────────────────────────
 void SimulationEngine::generateRequests(double dtSec) {
-    // If request ceiling is met, do not generate further requests
     if (config_.totalRequests > 0 && totalRequests_ >= config_.totalRequests) return;
 
-    Component* entry = entryPoint();
+    Component* entry = getEntryPoint();
     if (!entry) return;
 
-    double expected = config_.requestRatePerSec * dtSec;
-    int count = static_cast<int>(expected);
-    // Fractional Poisson arrival probability
-    double remainder = expected - count;
+    double expectedArrivals = config_.requestRatePerSec * dtSec;
+    int count = static_cast<int>(expectedArrivals);
+    double remainder = expectedArrivals - count;
+
+    // Random fractional arrival
     if ((static_cast<double>(rand()) / RAND_MAX) < remainder) {
-        ++count;
+        count++;
     }
 
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; i++) {
         if (config_.totalRequests > 0 && totalRequests_ >= config_.totalRequests) break;
 
-        auto req                = std::make_shared<Request>();
-        req->id                 = nextRequestId_++;
-        req->clientId           = entryPointId_;
-        req->createdAt          = simNow_;
-        req->completedAt        = 0.0;
-        req->status             = RequestStatus::Created;
-        req->currentComponentId = -1;
-        req->totalLatencyMs     = 0.0;
-        req->totalQueueWaitMs   = 0.0;
+        auto req = std::make_shared<Request>();
+        req->id = nextRequestId_++;
+        req->clientId = entryPointId_;
+        req->createdAtSec = simNowSec_;
+        req->status = RequestStatus::Created;
 
         allRequests_.push_back(req);
-        ++totalRequests_;
+        totalRequests_++;
 
-        // Place into entry-point component
-        bool received = entry->receiveRequest(req, simNow_);
+        bool received = entry->receiveRequest(req, simNowSec_);
         if (!received) {
-            ++droppedRequests_;
+            droppedRequests_++;
         }
     }
 }
 
-// ── Phase 2: updateComponents ────────────────────────────────────────────────
-// Ticks every component in the architecture graph, schedules waiting requests,
-// evaluates worker completion, and routes messages downstream.
+// ── Update Components ────────────────────────────────────────────────────────
 void SimulationEngine::updateComponents(double dtSec) {
     for (auto& kv : components_) {
-        auto& comp = kv.second;
-        auto completed = comp->tick(simNow_, dtSec);
+        auto finished = kv.second->update(dtSec, simNowSec_);
 
-        for (auto& req : completed) {
+        for (auto& req : finished) {
             if (req->isDone()) {
                 if (req->isSuccess()) {
-                    ++completedRequests_;
-                    // End-to-end round trip latency: (completedAt - createdAt) * 1000.0 ms
-                    double roundTripMs = (req->completedAt - req->createdAt) * 1000.0;
-                    if (roundTripMs < 0.0) roundTripMs = req->totalLatencyMs + req->totalQueueWaitMs;
+                    completedRequests_++;
+                    double roundTripMs = req->totalRoundTripMs();
+                    if (roundTripMs <= 0.0) {
+                        roundTripMs = (req->completedAtSec - req->createdAtSec) * 1000.0;
+                    }
+                    if (roundTripMs < 0.0) roundTripMs = 0.0;
+
                     sumLatencyMs_ += roundTripMs;
-                    completedLatencies_.push_back(roundTripMs);
+                    completedLatenciesMs_.push_back(roundTripMs);
                 } else if (req->status == RequestStatus::Dropped) {
-                    ++droppedRequests_;
+                    droppedRequests_++;
                 } else {
-                    ++failedRequests_;
+                    failedRequests_++;
                 }
             }
         }
     }
 }
 
-// ── Phase 4: advanceSimulationTime ───────────────────────────────────────────
-void SimulationEngine::advanceSimulationTime(double dtSec) {
-    simNow_ += dtSec;
-}
-
-// ── getSystemMetrics ─────────────────────────────────────────────────────────
-// Calculates system-level averages, throughput, and P99 latency percentiles.
+// ── Get System Metrics ───────────────────────────────────────────────────────
 SystemMetrics SimulationEngine::getSystemMetrics() const {
-    std::lock_guard<std::mutex> lk(engineMutex_);
     SystemMetrics m;
-    m.simTimeSec      = simNow_;
-    m.totalRequests   = totalRequests_;
-    m.completed       = completedRequests_;
-    m.failed          = failedRequests_;
-    m.dropped         = droppedRequests_;
+    m.simTimeSec = simNowSec_;
+    m.totalRequests = totalRequests_;
+    m.completed = completedRequests_;
+    m.failed = failedRequests_;
+    m.dropped = droppedRequests_;
 
-    // Calculate in-flight requests currently residing across all components
     uint64_t inFlight = 0;
     for (const auto& kv : components_) {
-        inFlight += static_cast<uint64_t>(kv.second->queueDepth() + kv.second->busySlots());
-        m.perComponent[kv.first] = kv.second->getMetrics(simNow_);
+        inFlight += static_cast<uint64_t>(kv.second->getQueueDepth() + kv.second->getBusyWorkers());
+        m.perComponent[kv.first] = kv.second->getMetrics();
     }
     m.inFlight = inFlight;
 
-    // Average end-to-end latency
+    // Average latency
     m.avgLatencyMs = completedRequests_ > 0
         ? (sumLatencyMs_ / static_cast<double>(completedRequests_))
         : 0.0;
 
-    // Accurate 99th Percentile (P99) Latency calculation
-    if (!completedLatencies_.empty()) {
-        std::vector<double> copy = completedLatencies_;
-        size_t idx = static_cast<size_t>(std::ceil(0.99 * copy.size())) - 1;
-        if (idx >= copy.size()) idx = copy.size() - 1;
-        std::nth_element(copy.begin(), copy.begin() + idx, copy.end());
-        m.p99LatencyMs = copy[idx];
+    // Accurate 99th Percentile (P99) Latency using std::nth_element
+    if (!completedLatenciesMs_.empty()) {
+        std::vector<double> latenciesCopy = completedLatenciesMs_;
+        size_t idx = static_cast<size_t>(std::ceil(0.99 * latenciesCopy.size())) - 1;
+        if (idx >= latenciesCopy.size()) idx = latenciesCopy.size() - 1;
+
+        std::nth_element(latenciesCopy.begin(), latenciesCopy.begin() + idx, latenciesCopy.end());
+        m.p99LatencyMs = latenciesCopy[idx];
     } else {
         m.p99LatencyMs = 0.0;
     }
 
-    // System-wide throughput (completed requests per simulation second)
-    m.throughputPerSec = simNow_ > 0.0
-        ? (static_cast<double>(completedRequests_) / simNow_)
+    // System throughput (completed requests per simulated second)
+    m.throughputPerSec = simNowSec_ > 0.0
+        ? (static_cast<double>(completedRequests_) / simNowSec_)
         : 0.0;
 
     return m;
@@ -275,7 +222,7 @@ Component* SimulationEngine::getComponent(int id) const {
     return it != components_.end() ? it->second.get() : nullptr;
 }
 
-Component* SimulationEngine::entryPoint() const {
+Component* SimulationEngine::getEntryPoint() const {
     return getComponent(entryPointId_);
 }
 

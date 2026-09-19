@@ -1,234 +1,231 @@
 #include "component.hpp"
 #include <algorithm>
-#include <cmath>
 
 namespace archisys {
 
 Component::Component(int id, std::string name, std::string type)
     : id_(id), name_(std::move(name)), type_(std::move(type)) {}
 
-// ── receiveRequest ────────────────────────────────────────────────────────────
-// Called when a request arrives at this component's door.
-// If the internal wait queue has reached its max capacity (maxQueue), the request
-// cannot be buffered and is dropped immediately (overflow drop).
-bool Component::receiveRequest(std::shared_ptr<Request> req, double simNow) {
-    if (static_cast<int>(waitQueue_.size()) >= maxQueue) {
+void Component::addOutgoing(Component* next) {
+    if (next) outgoing_.push_back(next);
+}
+
+void Component::addIncoming(Component* prev) {
+    if (prev) incoming_.push_back(prev);
+}
+
+// ── Receive Request ──────────────────────────────────────────────────────────
+// Accepts a request into the component's FIFO wait queue.
+// Drops the request if maxQueue capacity is exceeded.
+bool Component::receiveRequest(std::shared_ptr<Request> req, double simNowSec) {
+    std::lock_guard<std::mutex> lock(compMutex_);
+
+    if ((int)waitQueue_.size() >= maxQueue) {
         req->status = RequestStatus::Dropped;
-        req->completedAt = simNow;
-        ++droppedCount_;
+        req->completedAtSec = simNowSec;
+        droppedCount_++;
         return false;
     }
 
     req->status = RequestStatus::InQueue;
     req->currentComponentId = id_;
 
-    // Log arrival hop on the request's journey
     RouteHop hop;
-    hop.componentId      = id_;
-    hop.componentName    = name_;
-    hop.arrivalTime      = simNow;
-    hop.processingStart  = 0.0;
-    hop.departureTime    = 0.0;
-    hop.queueWaitTimeMs  = 0.0;
+    hop.componentId = id_;
+    hop.componentName = name_;
+    hop.queueWaitTimeMs = 0.0;
     hop.processingTimeMs = 0.0;
     req->route.push_back(hop);
 
-    waitQueue_.push(req);
-    ++rxCount_;
+    waitQueue_.push({req, simNowSec});
+    rxCount_++;
     return true;
 }
 
-// ── computeProcessingDurationMs ───────────────────────────────────────────────
-// Default base processing duration based on user-configured processingMs (procTime).
-// If cpuCores is configured and concurrent active slots exceed cores, slight CPU
-// contention scaling is applied.
-double Component::computeProcessingDurationMs(const std::shared_ptr<Request>& /*req*/, double /*simNow*/) const {
-    double duration = processingMs;
-    // Client components have 0ms latency
-    if (duration <= 0.0) return 0.0;
+// ── Calculate Processing Duration ────────────────────────────────────────────
+// Calculates execution latency in milliseconds for a request.
+double Component::calculateProcessTime(const std::shared_ptr<Request>& /*req*/) {
+    double timeMs = procTimeMs;
+    if (timeMs <= 0.0) return 0.0;
 
-    int busy = busySlots();
+    // CPU core contention scaling:
+    // When busy workers exceed available physical CPU cores, latency increases proportionally
+    int busy = getBusyWorkers();
     if (cpuCores > 0 && busy > cpuCores) {
-        // High core contention: processing takes proportionally longer
-        double contentionFactor = static_cast<double>(busy) / static_cast<double>(cpuCores);
-        duration *= std::min(2.5, contentionFactor); // cap contention overhead at 2.5x
+        double contentionFactor = (double)busy / cpuCores;
+        if (contentionFactor > 2.5) contentionFactor = 2.5; // Cap at 2.5x
+        timeMs *= contentionFactor;
     }
-    return duration;
+    return timeMs;
 }
 
-// ── tick ─────────────────────────────────────────────────────────────────────
-// Executes one simulation time step (tick):
-//
-// 1. Completion check: Any request currently occupying an active worker slot
-//    whose scheduled finishAt has arrived is marked finished and freed from the slot.
-//
-// 2. Scheduling: Available free worker slots (up to 'instances') pull waiting
-//    requests from the FIFO waitQueue. Queue wait time (processingStart - arrivalTime)
-//    is recorded and the slot finish timestamp (simNow + procDuration) is set.
-//
-// 3. Metrics updates: Active worker slot occupancy determines instant CPU utilization;
-//    rolling throughput is calculated based on completed transactions.
-//
-// 4. Forwarding: Completed requests are dispatched to downstream components.
-std::vector<std::shared_ptr<Request>> Component::tick(double simNow, double /*dtSec*/) {
-    std::vector<std::shared_ptr<Request>> completed;
+// ── Update / Discrete Tick ───────────────────────────────────────────────────
+// Updates worker instances, processes FIFO queues, and forwards finished requests.
+std::vector<std::shared_ptr<Request>> Component::update(double dtSec, double simNowSec) {
+    std::lock_guard<std::mutex> lock(compMutex_);
+    std::vector<std::shared_ptr<Request>> finishedRequests;
+    double dtMs = dtSec * 1000.0;
 
-    // ① Check for requests that finished processing in active worker slots
-    for (auto& slot : activeSlots_) {
-        if (slot.req != nullptr && simNow >= slot.finishAt) {
-            auto req = slot.req;
-            req->status = RequestStatus::Forwarded;
-
-            double actualProcMs = (simNow - slot.startedAt) * 1000.0;
-            if (actualProcMs < 0.0) actualProcMs = 0.0;
-
-            sumProcessingMs_ += actualProcMs;
-            req->totalLatencyMs += actualProcMs;
-
-            // Finalize the current hop telemetry
-            if (!req->route.empty()) {
-                auto& hop = req->route.back();
-                hop.departureTime    = simNow;
-                hop.processingTimeMs = actualProcMs;
-            }
-
-            ++txCount_;
-            completed.push_back(req);
-            slot.req = nullptr; // Free this worker instance slot
-        }
+    // 1. Maintain worker pool size to match configured instance count
+    int targetWorkers = instances > 0 ? instances : 1;
+    while ((int)workers_.size() < targetWorkers) {
+        workers_.push_back({nullptr, 0.0, 0.0});
     }
-
-    // ② Ensure activeSlots_ has exactly `instances` slots allocated
-    int targetInstances = std::max(1, instances);
-    while (static_cast<int>(activeSlots_.size()) < targetInstances) {
-        activeSlots_.push_back({nullptr, 0.0, 0.0});
-    }
-    while (static_cast<int>(activeSlots_.size()) > targetInstances) {
-        // If instances shrank and a slot is empty, pop it
-        if (!activeSlots_.back().req) {
-            activeSlots_.pop_back();
+    while ((int)workers_.size() > targetWorkers) {
+        if (workers_.back().activeRequest == nullptr) {
+            workers_.pop_back();
         } else {
             break;
         }
     }
 
-    // ③ Promote waiting requests from FIFO queue into available worker slots
-    for (auto& slot : activeSlots_) {
-        if (slot.req == nullptr && !waitQueue_.empty()) {
-            auto req = waitQueue_.front();
-            waitQueue_.pop();
+    // 2. Advance processing for active workers
+    for (size_t i = 0; i < workers_.size(); i++) {
+        if (workers_[i].activeRequest != nullptr) {
+            workers_[i].remainingTimeMs -= dtMs;
+            if (workers_[i].remainingTimeMs <= 0.0) {
+                // Request finished processing at this worker
+                auto req = workers_[i].activeRequest;
+                double actualProcMs = workers_[i].totalTimeMs;
 
-            req->status = RequestStatus::Processing;
+                sumProcessingMs_ += actualProcMs;
+                req->totalProcessingMs += actualProcMs;
 
-            // Compute exact queue waiting duration
-            if (!req->route.empty()) {
-                double waitMs = (simNow - req->route.back().arrivalTime) * 1000.0;
-                if (waitMs < 0.0) waitMs = 0.0;
-                req->totalQueueWaitMs += waitMs;
-                sumQueueWaitMs_       += waitMs;
-                req->route.back().processingStart  = simNow;
-                req->route.back().queueWaitTimeMs  = waitMs;
-            }
-
-            // Component-specific start hook
-            onStartProcessing(req, simNow);
-
-            // Compute execution duration for this specific request
-            double procDurationMs = computeProcessingDurationMs(req, simNow);
-            double procDurationSec = procDurationMs / 1000.0;
-
-            slot.req       = req;
-            slot.startedAt = simNow;
-            slot.finishAt  = simNow + procDurationSec;
-
-            // If processing time is 0 (e.g. Client or immediate pass-through), finish in same tick
-            if (procDurationMs <= 0.0) {
-                req->status = RequestStatus::Forwarded;
                 if (!req->route.empty()) {
-                    auto& hop = req->route.back();
-                    hop.departureTime    = simNow;
-                    hop.processingTimeMs = 0.0;
+                    req->route.back().processingTimeMs = actualProcMs;
                 }
-                ++txCount_;
-                completed.push_back(req);
-                slot.req = nullptr;
+
+                txCount_++;
+                finishedRequests.push_back(req);
+
+                // Free the worker instance
+                workers_[i].activeRequest = nullptr;
+                workers_[i].remainingTimeMs = 0.0;
+                workers_[i].totalTimeMs = 0.0;
             }
         }
     }
 
-    // ④ CPU Utilization: Percentage of active worker instances currently busy
-    int busy = busySlots();
-    int totalSlots = std::max(1, static_cast<int>(activeSlots_.size()));
-    cpuUsage_ = (static_cast<double>(busy) / static_cast<double>(totalSlots)) * 100.0;
-    if (cpuUsage_ > 100.0) cpuUsage_ = 100.0;
+    // 3. Promote waiting requests from FIFO queue to available workers
+    for (size_t i = 0; i < workers_.size(); i++) {
+        if (workers_[i].activeRequest == nullptr && !waitQueue_.empty()) {
+            auto item = waitQueue_.front();
+            waitQueue_.pop();
 
-    // ⑤ Rolling throughput calculation (windowed over 1 simulated second)
-    if (simNow - lastWindowTime_ >= 1.0) {
-        throughputRps_  = static_cast<double>(txCount_ - txLastWindow_) / (simNow - lastWindowTime_);
-        txLastWindow_   = txCount_;
-        lastWindowTime_ = simNow;
+            auto req = item.first;
+            double arrivalTimeSec = item.second;
+            double waitMs = (simNowSec - arrivalTimeSec) * 1000.0;
+            if (waitMs < 0.0) waitMs = 0.0;
+
+            sumQueueWaitMs_ += waitMs;
+            req->totalQueueWaitMs += waitMs;
+
+            if (!req->route.empty()) {
+                req->route.back().queueWaitTimeMs = waitMs;
+            }
+
+            double processMs = calculateProcessTime(req);
+
+            if (processMs <= 0.0) {
+                // Instant pass-through (e.g. 0ms Client node)
+                txCount_++;
+                finishedRequests.push_back(req);
+            } else {
+                workers_[i].activeRequest = req;
+                workers_[i].remainingTimeMs = processMs;
+                workers_[i].totalTimeMs = processMs;
+                req->status = RequestStatus::Processing;
+            }
+        }
     }
 
-    // ⑥ Forward all finished requests downstream to next components
-    for (auto& req : completed) {
-        forwardRequest(req, simNow);
+    // 4. Calculate CPU Utilization (% of busy worker instances)
+    int busy = 0;
+    for (const auto& w : workers_) {
+        if (w.activeRequest != nullptr) busy++;
+    }
+    int total = (int)workers_.size();
+    cpuUsagePct_ = total > 0 ? ((double)busy / total) * 100.0 : 0.0;
+    if (cpuUsagePct_ > 100.0) cpuUsagePct_ = 100.0;
+
+    // 5. Rolling throughput calculation (windowed every 1 second)
+    if (simNowSec - lastMetricTimeSec_ >= 1.0) {
+        double elapsedSec = simNowSec - lastMetricTimeSec_;
+        throughput_ = (double)(txCount_ - lastTxCount_) / elapsedSec;
+        lastTxCount_ = txCount_;
+        lastMetricTimeSec_ = simNowSec;
     }
 
-    return completed;
+    // 6. Forward completed requests downstream
+    for (auto& req : finishedRequests) {
+        forwardRequest(req, simNowSec);
+    }
+
+    return finishedRequests;
 }
 
-// ── forwardRequest ────────────────────────────────────────────────────────────
-// Dispatches a request that just finished processing at this component.
-// If there are no outgoing edges, this component is the terminal sink and the
-// request completes its overall journey.
-void Component::forwardRequest(std::shared_ptr<Request> req, double simNow) {
+// ── Forward Request ──────────────────────────────────────────────────────────
+// Dispatches finished requests to downstream components or marks complete if terminal.
+void Component::forwardRequest(std::shared_ptr<Request> req, double simNowSec) {
     if (outgoing_.empty()) {
-        // Terminal node reached — mark request completed
-        req->status      = RequestStatus::Completed;
-        req->completedAt = simNow;
+        req->status = RequestStatus::Completed;
+        req->completedAtSec = simNowSec;
         return;
     }
-    // Default forwarder: send to first downstream connected component
-    outgoing_[0]->receiveRequest(req, simNow);
+    // Default: Forward to the first outgoing connection
+    outgoing_[0]->receiveRequest(req, simNowSec);
 }
 
-int Component::busySlots() const {
+int Component::getQueueDepth() const {
+    std::lock_guard<std::mutex> lock(compMutex_);
+    return (int)waitQueue_.size();
+}
+
+int Component::getBusyWorkers() const {
     int count = 0;
-    for (const auto& slot : activeSlots_) {
-        if (slot.req != nullptr) ++count;
+    for (const auto& w : workers_) {
+        if (w.activeRequest != nullptr) count++;
     }
     return count;
 }
 
-// ── getMetrics ────────────────────────────────────────────────────────────────
-// Returns a live telemetry snapshot of this component's performance metrics.
-ComponentMetrics Component::getMetrics(double /*simNow*/) const {
+double Component::getCpuUsagePct() const {
+    return cpuUsagePct_;
+}
+
+// ── Get Metrics ──────────────────────────────────────────────────────────────
+ComponentMetrics Component::getMetrics() const {
+    std::lock_guard<std::mutex> lock(compMutex_);
     ComponentMetrics m;
-    m.componentId       = id_;
-    m.componentName     = name_;
-    m.componentType     = type_;
-    m.queueDepth        = static_cast<int>(waitQueue_.size());
-    m.maxQueue          = maxQueue;
-    m.cpuUsagePct       = cpuUsage_;
-    m.requestsReceived  = rxCount_;
+    m.id = id_;
+    m.name = name_;
+    m.type = type_;
+    m.queueDepth = (int)waitQueue_.size();
+    m.maxQueue = maxQueue;
+    m.cpuUsagePct = cpuUsagePct_;
+    m.requestsReceived = rxCount_;
     m.requestsCompleted = txCount_;
-    m.requestsDropped   = droppedCount_;
-    m.avgProcessingMs   = txCount_ > 0 ? (sumProcessingMs_ / txCount_) : 0.0;
-    m.avgQueueWaitMs    = txCount_ > 0 ? (sumQueueWaitMs_ / txCount_) : 0.0;
-    m.throughputPerSec  = throughputRps_;
+    m.requestsDropped = droppedCount_;
+    m.avgProcessingMs = txCount_ > 0 ? (sumProcessingMs_ / txCount_) : 0.0;
+    m.avgQueueWaitMs = txCount_ > 0 ? (sumQueueWaitMs_ / txCount_) : 0.0;
+    m.throughputPerSec = throughput_;
     return m;
 }
 
-// ── resetStats ────────────────────────────────────────────────────────────────
-void Component::resetStats() {
-    rxCount_ = txCount_ = droppedCount_ = 0;
-    sumProcessingMs_ = sumQueueWaitMs_ = 0.0;
-    cpuUsage_ = 0.0;
-    throughputRps_ = 0.0;
-    txLastWindow_ = 0;
-    lastWindowTime_ = 0.0;
+// ── Reset ────────────────────────────────────────────────────────────────────
+void Component::reset() {
+    std::lock_guard<std::mutex> lock(compMutex_);
+    rxCount_ = 0;
+    txCount_ = 0;
+    droppedCount_ = 0;
+    sumProcessingMs_ = 0.0;
+    sumQueueWaitMs_ = 0.0;
+    cpuUsagePct_ = 0.0;
+    throughput_ = 0.0;
+    lastTxCount_ = 0;
+    lastMetricTimeSec_ = 0.0;
     while (!waitQueue_.empty()) waitQueue_.pop();
-    activeSlots_.clear();
+    workers_.clear();
 }
 
 } // namespace archisys
